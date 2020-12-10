@@ -49,7 +49,13 @@ func (c *RemoteClient) Start(filename string, isDirectory bool) error {
 
 	command := commandBuilder.String()
 
-	return c.session.Start(command)
+	err := c.session.Start(command)
+
+	if err != nil {
+		return err
+	}
+
+	return c.checkResponse()
 }
 
 func (c *RemoteClient) checkResponse() error {
@@ -67,9 +73,9 @@ func (c *RemoteClient) checkResponse() error {
 	errorMessageBuilder := strings.Builder{}
 
 	if buffer[0] == 1 {
-		errorMessageBuilder.WriteString("Warning (1): ")
+		errorMessageBuilder.WriteString("Error (1): ")
 	} else if buffer[0] == 2 {
-		errorMessageBuilder.WriteString("Error (2): ")
+		errorMessageBuilder.WriteString("Fatal (2): ")
 	} else {
 		errorMessageBuilder.WriteString("UnknownError (")
 		errorMessageBuilder.WriteString(strconv.Itoa(int(buffer[0])))
@@ -91,12 +97,7 @@ func (c *RemoteClient) checkResponse() error {
 }
 
 func (c *RemoteClient) WriteFile(perm string, size int64, filename string, data io.Reader) error {
-	err := c.checkResponse()
-	if err != nil {
-		return err
-	}
-
-	_, err = fmt.Fprintln(c.stdin, "C"+perm, size, filename)
+	_, err := fmt.Fprintln(c.stdin, "C"+perm, size, filename)
 	if err != nil {
 		return err
 	}

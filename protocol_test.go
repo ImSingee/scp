@@ -123,3 +123,28 @@ func TestWriteFileToUnExistFolder(t *testing.T) {
 
 	tt.AssertFalse(t, checkFileExist(t, "/test/not/exist/folder"))
 }
+
+func TestWriteMultipleFilesToFolder(t *testing.T) {
+	reset(t)
+
+	session := getSshSession(t)
+	defer session.Close()
+
+	client, err := NewClient(session)
+	tt.AssertIsNil(t, err)
+
+	err = client.Start("/test", false)
+	tt.AssertIsNil(t, err)
+
+	err = client.WriteFile("0644", 6, "test01", strings.NewReader("hahaha"))
+	tt.AssertIsNil(t, err)
+
+	err = client.WriteFile("0644", 8, "test02", strings.NewReader("xixixixi"))
+	tt.AssertIsNil(t, err)
+
+	tt.AssertTrue(t, checkFileExist(t, "/test/test01"))
+	tt.AssertTrue(t, checkFileExist(t, "/test/test02"))
+
+	tt.AssertEqual(t, "hahaha", string(readFile(t, "/test/test01")))
+	tt.AssertEqual(t, "xixixixi", string(readFile(t, "/test/test02")))
+}
