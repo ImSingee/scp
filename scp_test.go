@@ -53,3 +53,26 @@ func TestCopyFileToFolder(t *testing.T) {
 	tt.AssertTrue(t, checkFileExist(t, remotePath))
 	tt.AssertEqual(t, "abcdefg", string(readFile(t, remotePath)))
 }
+
+func TestCopyFolderToFolder(t *testing.T) {
+	reset(t)
+
+	session := getSshSession(t)
+	defer session.Close()
+
+	err := Copy(session, "tests_data/t", "/test")
+	tt.AssertIsNil(t, err)
+
+	tt.AssertTrue(t, checkFileExist(t, "/test/t/a"))
+	tt.AssertTrue(t, checkFileExist(t, "/test/t/a/b"))
+	tt.AssertTrue(t, checkFileExist(t, "/test/t/a/c"))
+	tt.AssertTrue(t, checkFileExist(t, "/test/t/b"))
+	tt.AssertTrue(t, checkFileExist(t, "/test/t/c"))
+	tt.AssertTrue(t, checkFileExist(t, "/test/t/c/d"))
+	tt.AssertTrue(t, checkFileExist(t, "/test/t/e"))
+
+	tt.AssertEqual(t, "hahaha", string(readFile(t, "/test/t/a/b")))
+	tt.AssertEqual(t, "xixixixi", string(readFile(t, "/test/t/a/c")))
+	tt.AssertEqual(t, "", string(readFile(t, "/test/t/c/d")))
+	tt.AssertEqual(t, "root", string(readFile(t, "/test/t/e")))
+}
