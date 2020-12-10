@@ -7,6 +7,7 @@ import (
 	"github.com/alessio/shellescape"
 	"golang.org/x/crypto/ssh"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -16,6 +17,8 @@ type RemoteClient struct {
 
 	stdout io.Reader
 	stdin  io.WriteCloser
+
+	verbose bool
 }
 
 func NewClient(session *ssh.Session) (*RemoteClient, error) {
@@ -40,7 +43,37 @@ func (c *RemoteClient) Start(filename string, isDirectory bool) error {
 	commandBuilder.WriteString("scp -t")
 
 	if isDirectory {
-		commandBuilder.WriteString(" -d")
+		commandBuilder.WriteString(" -r")
+	}
+	if c.verbose {
+		commandBuilder.WriteString(" -v")
+
+		// just for debug
+		stderr, err := c.session.StderrPipe()
+		if err != nil {
+			fmt.Println("Cannot connect to stderr")
+		} else {
+			f, err := os.Create("protocol.log")
+
+			if err != nil {
+				fmt.Println("Cannot create test file")
+			} else {
+				go func() {
+					buffer := make([]byte, 1024)
+					for {
+						read, _ := stderr.Read(buffer)
+						if read != 0 {
+							_, err := f.Write(buffer[:read])
+
+							if err != nil {
+								fmt.Println("Cannot write verbose info")
+							}
+						}
+					}
+				}()
+			}
+
+		}
 	}
 
 	commandBuilder.WriteByte(' ')
@@ -113,6 +146,39 @@ func (c *RemoteClient) WriteFile(perm string, size int64, filename string, data 
 	}
 
 	_, err = c.stdin.Write([]byte{0})
+	if err != nil {
+		return err
+	}
+
+	err = c.checkResponse()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *RemoteClient) WriteDirectoryStart(perm string, filename string) error {
+	if len(filename) > 1024 {
+		// Unknown reason, just as same as https://github.com/openssh/openssh-portable/blob/master/scp.c#L1204
+		filename = filename[:1024]
+	}
+
+	_, err := fmt.Fprintln(c.stdin, "D"+perm, 0, filename)
+	if err != nil {
+		return err
+	}
+
+	err = c.checkResponse()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *RemoteClient) WriteDirectoryEnd() error {
+	_, err := fmt.Fprintln(c.stdin, "E")
 	if err != nil {
 		return err
 	}
