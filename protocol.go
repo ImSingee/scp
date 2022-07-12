@@ -19,9 +19,10 @@ type RemoteClient struct {
 	stdin  io.WriteCloser
 
 	verbose bool
+	options *Options
 }
 
-func NewClient(session *ssh.Session) (*RemoteClient, error) {
+func (o *Options) NewClient(session *ssh.Session) (*RemoteClient, error) {
 	stdout, err := session.StdoutPipe()
 
 	if err != nil {
@@ -34,13 +35,17 @@ func NewClient(session *ssh.Session) (*RemoteClient, error) {
 		return nil, fmt.Errorf("cannot set stdin: %w", err)
 	}
 
-	return &RemoteClient{session: session, stdout: stdout, stdin: stdin}, nil
+	return &RemoteClient{options: o.applyDefault(), session: session, stdout: stdout, stdin: stdin}, nil
+}
+
+func NewClient(session *ssh.Session) (*RemoteClient, error) {
+	return DefaultOptions.NewClient(session)
 }
 
 func (c *RemoteClient) Start(filename string, isDirectory bool) error {
 	commandBuilder := strings.Builder{}
 
-	commandBuilder.WriteString("scp -t")
+	commandBuilder.WriteString(c.options.scpPath + " -t")
 
 	if isDirectory {
 		commandBuilder.WriteString(" -r")
